@@ -1,0 +1,44 @@
+mkdir crypto-watchlist-vercel
+cd crypto-watchlist-vercel
+mkdir public
+mv path_to_index.html public/
+mv other_assets public/
+mkdir api
+touch api/app.pyfrom flask import Flask, jsonify, request
+import requests
+
+app = Flask(__name__)
+COINGECKO_API_URL = "https://api.coingecko.com/api/v3/coins/markets"
+
+@app.route('/crypto', methods=['GET'])
+def get_crypto():
+    params = {
+        "vs_currency": "usd",
+        "ids": request.args.get("ids", ""),  # Pass comma-separated coin IDs
+        "order": "market_cap_desc"
+    }
+    response = requests.get(COINGECKO_API_URL, params=params)
+    data = response.json()
+
+    for coin in data:
+        low_24h = coin.get("low_24h", 0)
+        current_price = coin.get("current_price", 0)
+        if low_24h > 0:
+            coin["change_from_low_24h"] = ((current_price - low_24h) / low_24h) * 100
+        else:
+            coin["change_from_low_24h"] = None
+
+    return jsonify(data)
+echo "Flask==2.2.5
+requests==2.31.0" > api/requirements.txt
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/app.py", "use": "@vercel/python" },
+    { "src": "public/**/*", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/crypto", "dest": "/api/app.py" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ]
+}
